@@ -1,0 +1,11 @@
+/* Known cards remain readable and their effect details stay available. */
+.overview-card:is(.published,.used,.own-hand,.own-hidden){filter:grayscale(1);background:#303536;border-color:#63696b;border-left-color:#858b8d;color:#c6cacc}
+.overview-card:is(.published,.used,.own-hand,.own-hidden) .overview-name>span{color:#b9bfc1}
+.overview-card:is(.published,.used,.own-hand,.own-hidden) .card-status{color:#c7ccce;background:#454b4d;border-color:#777f82}
+.overview-card:is(.published,.used,.own-hand,.own-hidden) .overview-attributes,
+.overview-card:is(.published,.used,.own-hand,.own-hidden) details,
+.overview-card:is(.published,.used,.own-hand,.own-hidden) details p{color:#b8bfc1}
+#own-intel{margin-top:20px;padding:20px;background:#122923;border:1px solid #91aaa04d;border-radius:8px}
+#own-intel .rank-clue details{margin-top:12px}
+#own-intel .rank-clue.solved .clue-heading>span{color:#edba94}
+@media(max-width:550px){#own-intel{padding:13px}.intel-title{align-items:flex-start;flex-wrap:wrap}.intel-count{margin-bottom:12px}}

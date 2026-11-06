@@ -1,0 +1,10 @@
+#fx-layer{position:fixed;inset:0;z-index:40;pointer-events:none;display:grid;place-items:center;overflow:hidden}
+.fx-popup{grid-area:1/1;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:190px;max-width:85vw;padding:26px 32px;border:1px solid #d4b575aa;border-radius:12px;background:#102e26f5;color:#eadbb6;box-shadow:0 18px 75px #0009;text-align:center;backface-visibility:hidden}
+.fx-symbol{font-size:44px;line-height:1.2;color:var(--gold)}.fx-popup strong{font-size:19px;font-weight:400}.fx-popup small{font-size:12px;color:#b2c4b7}
+.fx-draw{align-self:end;justify-self:end;margin:0 24px 24px;padding:14px 22px;min-width:0;gap:6px;background:#153b32f5}.fx-draw strong{font-size:13px}.fx-draw .fx-symbol{font-size:25px}
+.fx-raise{border:2px solid #dfc17e;background:radial-gradient(ellipse,#5e512b,#17392d 80%);box-shadow:0 0 80px #d4b57555}.fx-raise .fx-symbol{font-size:58px}
+.fx-use{border-color:#acd6ca}.fx-use .fx-symbol{color:#b4dfcf}#sound-toggle,#motion-toggle{font-size:11px;white-space:nowrap}
+@media(max-width:700px){header{height:auto;min-height:85px;gap:12px;padding-top:13px;padding-bottom:13px;flex-wrap:wrap}header nav{gap:6px;flex-wrap:wrap}header nav button{padding:7px 9px;font-size:10px}.fx-draw{margin:0 12px 12px}}
+/* Respect device accessibility preferences and the in-game motion switch. */
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.hand button.card:hover{transform:none}}
+.motion-off *,.motion-off *::before,.motion-off *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.motion-off .hand button.card:hover{transform:none}

@@ -1,0 +1,131 @@
+const names=['放浪者','軍師','聖女','女君主','上王','巫女頭','花嫁','騎士','鍛冶師','呪医','商人','牛追','受刑者','死神','開拓者','酔狂','征服者','弓聖','吟遊詩人','踊り子','刺客','探索者'];
+const colors=['白','白','白','白','黒','黒','黒','赤','赤','赤','青','青','青','青','黄','黄','黄','黄','緑','緑','緑','緑'];
+const styles=['追い込み','差し','先行','逃げ','差し','逃げ','先行','先行','差し','逃げ','先行','差し','追い込み','逃げ','先行','差し','追い込み','逃げ','追い込み','先行','差し','逃げ'];
+const edges={白:'#8a8068',黒:'#39434a',赤:'#a64c45',青:'#456e96',黄:'#a38536',緑:'#3d8064'};
+const pubs={0:'同じ枠色はどこ？',4:'白は何枚？',5:'赤は何枚？',6:'青は何枚？',7:'黒は何枚？',8:'黄は何枚？',9:'緑は何枚？',14:'両者が1枚引く',15:'両者が手札から1枚公開'};
+const uses=['1着は指定の数字以上？','1着の枠色は？','1着の脚質は？','1着の番号は偶数？','白はどこ？','赤はどこ？','青はどこ？','黒はどこ？','黄はどこ？','緑はどこ？','差しはどこ？','先行はどこ？','逃げはどこ？','追い込みはどこ？','自分は1枚引く','相手は手札から1枚公開','場のカードの公開／使用効果を発動','2枚引き、手札から1枚公開','最大 − 最小は幾つ？','両者：偶数は何枚？','両者：番号の合計は？','指定の番号はどこ？'];
+const symbols=['✧','⚑','✦','♛','♚','☽','❀','♞','⚒','☼','⚖','♉','⛓','☾','⚐','♧','♜','➶','♫','❖','†','⌖'];
+const $=id=>document.getElementById(id);let g=null,busy=false,choicePending=false;
+function gameFx(kind,data={}){try{return Promise.resolve(globalThis.KevaFX?.play(kind,data)).catch(()=>{})}catch{return Promise.resolve()}}
+let progressMode='manual',pendingStep=null;
+let answerCursor=-1,ownCandidatesVisible=false,enemyCardsVisible=false;
+try{if(localStorage.getItem('keva-progress')==='auto')progressMode='auto'}catch{}
+function renderProgress(){
+ const toggle=$('progress-toggle');if(toggle){toggle.textContent=progressMode==='auto'?'進行：オート':'進行：手動';toggle.setAttribute?.('aria-pressed',String(progressMode==='auto'))}
+ const panel=$('progress-panel');if(panel){panel.hidden=!pendingStep;panel.innerHTML=pendingStep?`<span>${pendingStep.message}</span><button class="primary" onclick="continueStep()">${pendingStep.button} →</button>`:''}
+}
+function continueStep(){if(!pendingStep)return;const step=pendingStep;pendingStep=null;busy=step.previousBusy;renderProgress();render();step.resolve()}
+function toggleProgress(){progressMode=progressMode==='manual'?'auto':'manual';try{localStorage.setItem('keva-progress',progressMode)}catch{}renderProgress();if(progressMode==='auto')continueStep()}
+function waitForStep(message,button='確認して進む'){
+ if(progressMode==='auto')return Promise.resolve();
+ const previousBusy=busy;busy=true;
+ return new Promise(resolve=>{pendingStep={message,button,previousBusy,resolve};render();renderProgress()});
+}
+$('progress-toggle').onclick=toggleProgress;
+renderProgress();
+function card(n,back=false,click=''){if(back)return '<div class="card back"><span class="sigil">♞</span><small>K É V A</small></div>';return `<${click?'button':'div'} class="card" style="--edge:${edges[colors[n]]}" ${click?`onclick="${click}"`:''}><span class="num">${String(n).padStart(2,'0')}</span><span class="symbol">${symbols[n]}</span><strong>${names[n]}</strong><small>${colors[n]}枠 · ${styles[n]}</small>${click?`<span class="effect">公開：${pubs[n]||'効果なし'}<br>使用：${uses[n]}</span>`:''}</${click?'button':'div'}>`}
+function modal(html){$('modalBody').innerHTML=html;if(!$('modal').open)$('modal').showModal()}
+function closeModal(){if(!choicePending)$('modal').close()}
+function info(title,body){if(choicePending)return;modal(`<h2>${title}</h2>${body}<div class="actions"><button onclick="closeModal()">閉じる</button></div>`)}
+$('modal').addEventListener('cancel',e=>{if(choicePending)e.preventDefault()});
+let resolveChoice;
+function choose(title,items){choicePending=true;modal(`<h2>${title}</h2><div class="choices">${items.map((x,i)=>`<button onclick="answerChoice(${i})">${x.label}</button>`).join('')}</div>`);return new Promise(r=>resolveChoice=i=>r(items[i].value))}
+function answerChoice(i){choicePending=false;$('modal').close();resolveChoice(i)}
+function log(s){g.logs.push(s);refreshCluesPopup();renderOverview()}
+function cardStatus(n){
+ if(!g)return {kind:'unknown',label:'未確認'};
+ const field=g.field.find(c=>c.n===n);
+ if(field)return {kind:field.mode==='publish'?'published':'used',label:`${field.owner===0?'自分':'相手'}が${field.mode==='publish'?'公開済み':'使用済み'}`};
+ const rank=g.players[0].hidden.indexOf(n);
+ if(rank!==-1)return {kind:'own-hidden',label:`自分の着順札 · ${rank+1}着`};
+ if(g.players[0].hand.includes(n))return {kind:'own-hand',label:'自分の手札'};
+ if(g.done){const enemyRank=g.players[1].hidden.indexOf(n);if(enemyRank!==-1)return {kind:'revealed',label:`相手の着順札 · ${enemyRank+1}着`}}
+ return {kind:'unknown',label:'未確認'};
+}
+function overviewCard(n){const status=cardStatus(n);return `<article class="overview-card ${status.kind}" style="--edge:${edges[colors[n]]}"><div class="overview-name"><span>${String(n).padStart(2,'0')}</span><strong>${names[n]}</strong></div><div class="overview-attributes">${colors[n]}枠 · ${styles[n]}</div><span class="card-status">${status.label}</span><details><summary>効果を見る</summary><p>公開：${pubs[n]||'効果なし'}<br>使用：${uses[n]}</p></details></article>`}
+function overviewHtml(){return `<div class="overview-heading"><h2>全22枚のカード一覧</h2><span>枠色別 · 番号順</span></div><div class="color-rows">${['白','黒','赤','青','黄','緑'].map(color=>`<section class="color-row" aria-label="${color}枠のカード"><h3>${color}枠</h3><div class="color-card-grid">${names.map((_,n)=>n).filter(n=>colors[n]===color).map(overviewCard).join('')}</div></section>`).join('')}</div>`}
+function renderOverview(){const el=$('card-overview');if(el){el.hidden=!g;el.innerHTML=g?overviewHtml():''}}
+function shuffled(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function start(){answerCursor=-1;void globalThis.KevaFX?.unlock();void gameFx('start');busy=false;g={deck:shuffled([...names.keys()]),players:[{hidden:[],hand:[],raised:false},{hidden:[],hand:[],raised:false}],logs:[],field:[],observations:[[],[]],first:Math.random()<.5?0:1,turn:0,phase:'intro',done:false,known:[new Set(),new Set()]};for(let p=0;p<2;p++){for(let j=0;j<3;j++)g.players[p].hidden.push(g.deck.pop());for(let j=0;j<3;j++)g.players[p].hand.push(g.deck.pop());g.players[p].hidden.concat(g.players[p].hand).forEach(n=>g.known[p].add(n))}log(`<b>準備</b> 3枚ずつの着順札と手札を配りました。${who(g.first)}が先攻です。`);beginTurn()}
+function who(p){return p===0?'あなた':'CPU'}
+async function draw(p,n=1){if(p===0&&g.deck.length&&n>0)await waitForStep(`山札から${Math.min(n,g.deck.length)}枚引きます。`,'カードを引く');let got=0;while(n--&&g.deck.length){const c=g.deck.pop();g.players[p].hand.push(c);g.known[p].add(c);got++}log(`${who(p)}が${got}枚引きました。${got===0?'山札は空です。':''}`);if(got)void gameFx('draw',{p,count:got})}
+function actionEffect(n,mode){return mode==='publish'?(n===0?'着順札で同じ枠色の着順を確認する':pubs[n]||'公開時効果なし'):uses[n]}
+function opponentAction(){const action=g.opponentAction;if(!action)return '';return `<section class="opponent-action" aria-live="polite"><div><span>${action.mode==='publish'?'相手が公開':'相手が使用'}</span><strong>${action.n} ${names[action.n]}</strong></div><p><b>${action.mode==='publish'?'公開時効果':'使用時効果'}</b> ${actionEffect(action.n,action.mode)}</p></section>`}
+function playedGroup(owner,mode){const cards=g.field.filter(c=>c.owner===owner&&c.mode===mode);return `<div class="played-group"><h4>${who(owner)}の${mode==='publish'?'公開済み':'使用済み'} <small>${cards.length}枚</small></h4><div class="played-cards">${cards.map(c=>owner===1?`<div class="played-with-effect">${card(c.n)}<p class="played-effect"><b>${mode==='publish'?'公開':'使用'}</b> ${actionEffect(c.n,mode)}</p></div>`:card(c.n)).join('')||'<span class="empty-cards">なし</span>'}</div></div>`}
+function playedFrame(mode){return `<section class="played-frame" aria-label="${mode==='publish'?'公開済み札':'使用済み札'}"><h3>${mode==='publish'?'公開済み札':'使用済み札'}</h3><div class="played-frame-owners">${playedGroup(0,mode)}${playedGroup(1,mode)}</div></section>`}
+function seat(p){if(p===1)return `<div class="seat"><span>♞ 対戦相手 · CPU ${g.players[1].raised?'· RAISE ×2':''}</span><span>手札 ${g.players[1].hand.length}枚</span></div><section id="intel" aria-live="polite">${intelligence()}</section>`;return `<div class="player-area"><div class="played-frames">${playedFrame('publish')}${playedFrame('use')}</div><section class="own-finish"><h3>自分の着順札 ${g.players[0].raised?'· RAISE ×2':''}</h3><div class="slots" data-seat="0">${g.players[0].hidden.map((n,i)=>`<div class="slot"><div class="rank">${i+1}着</div>${card(n)}</div>`).join('')}</div></section></div>`}
+function intelligence(){const answers=g.observations[0];if(!answers.length)return '<div class="answer-empty">相手の回答はまだありません。</div>';const index=answerCursor<0?answers.length-1:Math.min(answerCursor,answers.length-1),o=answers[index];return `<div class="answer-header"><h3>相手の回答</h3><span>${index===answers.length-1?'最新の回答':'過去の回答'} · ${index+1} / ${answers.length}</span></div><div class="latest-clue"><strong>${o.label} <b>${o.answer}</b></strong><small>${o.source||'カード効果'}</small></div><div class="answer-controls"><button onclick="browseAnswer(-1)" ${index===0?'disabled':''}>← 前の回答</button><button onclick="browseAnswer(1)" ${index===answers.length-1?'disabled':''}>次の回答 →</button><button onclick="latestAnswer()" ${index===answers.length-1?'disabled':''}>最新へ</button></div>`}
+function browseAnswer(delta){const n=g.observations[0].length;if(!n)return;const current=answerCursor<0?n-1:answerCursor;answerCursor=Math.max(0,Math.min(n-1,current+delta));$('intel').innerHTML=intelligence()}
+function latestAnswer(){answerCursor=-1;$('intel').innerHTML=intelligence()}
+function ownIntelSection(){return `<div class="own-intel-heading"><h3>相手から見た、自分の着順候補</h3><button onclick="toggleOwnCandidates()" aria-expanded="${ownCandidatesVisible}" aria-controls="own-candidates-body">${ownCandidatesVisible?'非表示にする':'表示する'}</button></div><div id="own-candidates-body" ${ownCandidatesVisible?'':'hidden'}>${ownCandidatesVisible?opponentView():''}</div>`}
+function toggleOwnCandidates(){ownCandidatesVisible=!ownCandidatesVisible;$('own-intel').innerHTML=ownIntelSection()}
+function refreshCluesPopup(){const log=$('history-log'),deductions=$('deduction-info');if(log)log.innerHTML=g?g.logs.slice().reverse().map(s=>`<div class="entry">${s}</div>`).join(''):'対戦を始めると履歴が表示されます。';if(deductions)deductions.innerHTML=g?deductionDetails():''}
+function showClues(){info('推理の手掛かり',`<div id="deduction-info">${g?deductionDetails():''}</div><h3>対戦の履歴</h3><div id="history-log">${g?g.logs.slice().reverse().map(s=>`<div class="entry">${s}</div>`).join(''):'対戦を始めると履歴が表示されます。'}</div>`)}
+function opponentView(){
+ const possible=opponentViewCandidates(),answers=g.observations[1];
+ return `<div class="intel-title"><span class="intel-count">着順の組み合わせ ${possible.length}通り</span></div>${!answers.length?'<p class="intel-empty">あなたの着順に関する回答はまだ伝わっていません。</p>':''}<div class="rank-clues">${[0,1,2].map(i=>{const ns=unique(possible.map(a=>a[i])).sort((a,b)=>a-b),fixed=ns.length===1;return `<article class="rank-clue ${fixed?'solved':''}"><div class="clue-heading"><strong>自分の${i+1}着</strong><span>${fixed?'特定される状態':`候補 ${ns.length}枚`}</span></div>${fixed?`<div class="identified">${ns[0]} ${names[ns[0]]}</div>`:`<details open><summary>予想されうるカード（${ns.length}枚）</summary><div class="candidate-list">${ns.map(n=>`<span>${n} ${names[n]}</span>`).join('')}</div></details>`}</article>`}).join('')}</div><details class="answer-list shared" ${answers.length?'open':''}><summary>相手に伝わった回答（${answers.length}件）</summary>${answers.map(o=>`<div>${o.label} → <strong>${o.answer}</strong></div>`).join('')}</details>`;
+}
+function unique(a){return [...new Set(a)]}
+function rankCandidates(possible){
+ return [0,1,2].map(i=>{
+  const ns=unique(possible.map(a=>a[i])).sort((a,b)=>a-b),cs=unique(ns.map(n=>colors[n])),ss=unique(ns.map(n=>styles[n]));
+  const fixed=ns.length===1;
+  return `<article class="rank-clue ${fixed?'solved':''}"><div class="clue-heading"><strong>${i+1}着</strong><span>${fixed?'特定済み':`候補 ${ns.length}枚`}</span></div>${fixed?`<div class="identified">${ns[0]} ${names[ns[0]]}</div>`:''}<div class="clue-tags">${cs.length===1?`<span class="fact-tag">${cs[0]}枠で確定</span>`:`<span>枠：${cs.join('・')||'不明'}</span>`}${ss.length===1?`<span class="fact-tag">${ss[0]}で確定</span>`:`<span>脚質：${ss.join('・')||'不明'}</span>`}${ns.length&&ns.every(n=>n%2===ns[0]%2)?`<span class="fact-tag">${ns[0]%2===0?'偶数':'奇数'}のみ</span>`:''}</div>${!fixed?`<details><summary>候補カードを見る（${ns.length}枚）</summary><div class="candidate-list">${ns.map(n=>`<span>${n} ${names[n]}</span>`).join('')}</div></details>`:''}</article>`;
+ }).join('');
+}
+function toggleEnemyCards(){enemyCardsVisible=!enemyCardsVisible;$('enemy-candidates').innerHTML=enemyCandidates()}
+function enemyCandidates(){const possible=candidates(0);const ranks=rankCandidates(possible);return `<div class="intel-title enemy-candidate-heading"><h3>相手の着順候補</h3><span class="intel-count">${possible.length}通り</span><button onclick="toggleEnemyCards()" aria-expanded="${enemyCardsVisible}">${enemyCardsVisible?'候補カードを隠す':'候補カードを見る'}</button></div><div class="rank-clues">${enemyCardsVisible?ranks.replaceAll('<details>','<details open>'):ranks.replace(/<details>[\s\S]*?<\/details>/g,'')}</div>`}
+function deductionDetails(){
+ const possible=candidates(0),answers=g.observations[0],latest=answers.at(-1);
+ const ranks=rankCandidates(possible);
+ const facts=unique(answers.map(o=>`${o.label} → ${o.answer}`));
+ return `<div class="intel-title"><div><div class="eyebrow">REVEALED INFORMATION</div><h3>相手の着順メモ</h3></div><span class="intel-count">回答 ${answers.length}件</span></div>${latest?`<div class="latest-clue"><span>直近の回答</span><strong>${latest.label} <b>${latest.answer}</b></strong><small>${latest.source||'カード効果'}</small></div>`:'<p class="intel-empty">まだカード効果の回答はありません。情報が判明すると、ここに自動でまとまります。</p>'}<div class="rank-clues">${ranks}</div>${facts.length?`<details class="answer-list" open><summary>相手について判明した回答（${facts.length}種類）</summary>${facts.map(s=>`<div>${s}</div>`).join('')}</details>`:''}${g.observations[1].length?`<details class="answer-list shared"><summary>相手に伝わった、あなたの情報（${g.observations[1].length}件）</summary>${g.observations[1].map(o=>`<div>${o.label} → <strong>${o.answer}</strong></div>`).join('')}</details>`:''}`;
+}
+function render(){renderOverview();if(!g){$('table').innerHTML=`<div class="start title-screen"><img class="title-image" src="picture/タイトル.jpg" alt="ケーヴァ！ タイトルイラスト" width="2480" height="3508" fetchpriority="high"><button class="primary" onclick="start()">CPUとの対戦をはじめる →</button><p>先攻・後攻はランダム / 全3巡</p></div>`;return}
+ const p=g.active;const instruction=g.phase==='publish'?'公開するカードを選んでください':g.phase==='use'?'使用するカード、またはレイズを選んでください':g.phase==='predict'?'相手の1着・2着・3着を予想してください':g.done?'決着 — 着順札を公開':'カード効果を解決しています';
+ $('table').innerHTML=`<div class="tabletop"><span class="badge">${g.done?'FINISH':g.phase==='predict'?'FINAL PREDICTION':`ROUND ${Math.min(3,Math.floor(g.turn/2)+1)} / 3`}</span><span>山札 ${g.deck.length}枚 · ${who(g.first)}が先攻</span></div>${seat(1)}${opponentAction()}<section id="enemy-candidates" aria-live="polite">${enemyCandidates()}</section><div class="middle"><div class="eyebrow">${g.done?'THE FATES REVEALED':p===0?'YOUR TURN':'OPPONENT TURN'}</div><h2>${instruction}</h2><p>${g.done?'得点は3つの条件をそれぞれ加算します。':g.phase==='predict'?'同じカードは重複して選べません。':p===0?'手札の下部に公開時・使用時の効果を表示しています。':'相手も公開済みの情報と回答から推理しています。'}</p>${g.phase==='use'&&p===0&&!g.players[0].raised?'<button class="primary" onclick="raiseHuman()">レイズを宣言する ×2</button>':''}${g.phase==='predict'?predictionForm():''}${g.done?resultHtml():''}</div><div class="seat"><span>YOUR HAND / 手札</span><span>${g.phase==='publish'?'公開フェーズ':g.phase==='use'?'使用フェーズ':''}</span></div><div class="hand">${g.players[0].hand.map(n=>card(n,false,!busy&&p===0&&['publish','use'].includes(g.phase)?`humanPlay(${n})`:'')).join('')}</div>${seat(0)}<section id="own-intel" aria-live="polite">${ownIntelSection()}</section>`}
+async function beginTurn(){if(g.turn>=6){g.phase='predict';g.active=0;busy=false;g.cpuGuess=cpuPrediction();log('<b>予想</b> 3巡が終了しました。相手の3枚と着順を予想しましょう。');render();void gameFx('predict');return}g.active=(g.first+g.turn)%2;const p=g.active;await draw(p);log(`<b>第${Math.floor(g.turn/2)+1}巡 · ${who(p)}</b>`);g.phase='publish';busy=p===1;render();if(!g.players[p].hand.length){log(`${who(p)}は手札がないため公開をスキップ。`);await usePhase(p);return}if(p===1){await delay();await takeCard(p,cpuCard(p,'publish'),'publish');await usePhase(p)}}
+const delay=()=>new Promise(r=>setTimeout(r,450));
+async function humanPlay(n){if(busy||g.active!==0||!g.players[0].hand.includes(n))return;busy=true;const mode=g.phase;render();await takeCard(0,n,mode);if(mode==='publish')await usePhase(0);else await finishTurn()}
+async function usePhase(p){g.phase='use';busy=p===1;render();if(p===1){await delay();if(!g.players[p].raised&&(g.turn>=4||g.players[p].hand.length===0)){g.players[p].raised=true;log('<b>CPUがレイズを宣言！</b> CPUの獲得点が2倍になります。');await gameFx('raise',{p:1});await waitForStep('CPUがレイズしました。CPUの獲得点が2倍になります。')}else if(g.players[p].hand.length)await takeCard(p,cpuCard(p,'use'),'use');else log('CPUの手札がないため使用をスキップ。');await finishTurn()}else if(!g.players[p].hand.length&&g.players[p].raised){log('手札がないため使用をスキップ。');await finishTurn()}}
+async function finishTurn(){g.turn++;await beginTurn()}
+async function raiseHuman(){if(busy||g.phase!=='use'||g.players[0].raised)return;busy=true;g.players[0].raised=true;log('<b>あなたがレイズを宣言！</b> あなたの獲得点が2倍になります。');await gameFx('raise',{p:0});await finishTurn()}
+function cpuCard(p,mode){return g.players[p].hand.slice().sort((a,b)=>value(b,mode)-value(a,mode))[0]}
+function value(n,mode){return mode==='publish'?(pubs[n]?n===15?3:n===14?2:6:0):(n<14?5:n===20?8:n===18?7:n===16?6:n===21?3:2)}
+async function takeCard(p,n,mode,depth=0){if(mode==='publish'&&g.players[p].hand.length===1)await draw(p);const i=g.players[p].hand.indexOf(n);if(i<0)return;g.players[p].hand.splice(i,1);g.field.push({n,owner:p,mode});if(p===1)g.opponentAction={n,mode};g.known.forEach(s=>s.add(n));log(`${who(p)}が <b>${n} ${names[n]}</b> を${mode==='publish'?'公開':'使用'}。`);render();await gameFx('card',{p,n,name:names[n],symbol:symbols[n],mode});await effect(p,n,mode,depth);if(p===1)await waitForStep(`CPUの${mode==='publish'?'公開':'使用'}：${n} ${names[n]}。${actionEffect(n,mode)}。効果と回答を確認してください。`)}
+function positions(a,test){return a.map((n,i)=>test(n)?`${i+1}着`:null).filter(Boolean).join('・')||'なし'}
+function matchingColorPositions(a){const groups=new Map();a.forEach((n,i)=>{const color=colors[n];if(!groups.has(color))groups.set(color,[]);groups.get(color).push(`${i+1}着`)});return [...groups.values()].filter(ranks=>ranks.length>1).map(ranks=>`${ranks.join('・')}が同じ枠色`).join(' ／ ')||'同じ枠色なし'}
+function ask(p,label,fn,both=false){const targets=both?[1-p,p]:[1-p];for(const t of targets){const answer=fn(g.players[t].hidden);log(`<b>${who(p)}の質問：${label}</b><br>${who(t)}の回答：${answer}`);g.observations[t===1?0:1].push({label,fn,answer,source:g.effectSource?`${g.effectSource.n} ${names[g.effectSource.n]} · ${g.effectSource.mode==='publish'?'公開':'使用'}効果`:''})}answerCursor=-1;if($('intel'))$('intel').innerHTML=intelligence();if($('enemy-candidates'))$('enemy-candidates').innerHTML=enemyCandidates();if($('own-intel'))$('own-intel').innerHTML=ownIntelSection();refreshCluesPopup();void gameFx('answer')}
+async function param(p,title,defaultVal){if(p===1)return defaultVal;return await choose(title,[...names.keys()].map(n=>({label:`${n} ${names[n]}`,value:n})))}
+async function forcedPublish(p,depth){if(g.players[p].hand.length<=1)await draw(p);if(!g.players[p].hand.length){log(`${who(p)}は手札がなく、追加公開をスキップ。`);return}let n;if(p===0)n=await choose('酔狂／追加効果：公開するカードを選択',g.players[p].hand.map(n=>({label:`${n} ${names[n]} · ${pubs[n]||'公開効果なし'}`,value:n})));else n=cpuCard(p,'publish');await takeCard(p,n,'publish',depth+1)}
+async function effect(p,n,mode,depth=0){g.effectSource={n,mode};if(depth>25){log('追加効果の連鎖上限に達しました。');return}if(mode==='publish'){
+ if(n===0)ask(p,'着順札で同じ枠色はどこ？',matchingColorPositions);
+ else if(n>=4&&n<=9){const col=['白','赤','青','黒','黄','緑'][n-4];ask(p,`${col}は何枚？`,a=>`${a.filter(x=>colors[x]===col).length}枚`)}
+ else if(n===14){await draw(p);await draw(1-p)}else if(n===15){await forcedPublish(p,depth);await forcedPublish(1-p,depth)}return}
+ if(n===0){const k=await param(p,'1着は、どの番号以上？',11);ask(p,`1着は${k}以上？`,a=>a[0]>=k?'はい':'いいえ')}
+ else if(n===1)ask(p,'1着の枠色は？',a=>colors[a[0]]);
+ else if(n===2)ask(p,'1着の脚質は？',a=>styles[a[0]]);
+ else if(n===3)ask(p,'1着の番号は偶数？',a=>a[0]%2===0?'はい':'いいえ');
+ else if(n>=4&&n<=9){const col=['白','赤','青','黒','黄','緑'][n-4];ask(p,`${col}はどこ？`,a=>positions(a,x=>colors[x]===col))}
+ else if(n>=10&&n<=13){const s=['差し','先行','逃げ','追い込み'][n-10];ask(p,`${s}はどこ？`,a=>positions(a,x=>styles[x]===s))}
+ else if(n===14)await draw(p);
+ else if(n===15)await forcedPublish(1-p,depth);
+ else if(n===16){const choices=g.field.filter(x=>x.n!==16).flatMap(x=>[...(pubs[x.n]?[{label:`${x.n} ${names[x.n]}：公開 · ${pubs[x.n]}`,value:{n:x.n,mode:'publish'}}]:[]),{label:`${x.n} ${names[x.n]}：使用 · ${uses[x.n]}`,value:{n:x.n,mode:'use'}}]);if(!choices.length){log('征服者：対象にできるカードがありません。');return}const c=p===0?await choose('征服者：発動する効果を選択',choices):choices.slice().sort((a,b)=>value(b.value.n,b.value.mode)-value(a.value.n,a.value.mode))[0].value;log(`征服者が ${c.n} ${names[c.n]} の${c.mode==='publish'?'公開':'使用'}効果を発動。`);await effect(p,c.n,c.mode,depth+1)}
+ else if(n===17){await draw(p,2);await forcedPublish(p,depth)}
+ else if(n===18)ask(p,'最大 − 最小は幾つ？',a=>String(Math.max(...a)-Math.min(...a)));
+ else if(n===19)ask(p,'偶数の番号は何枚？',a=>`${a.filter(x=>x%2===0).length}枚`,true);
+ else if(n===20)ask(p,'番号の合計は？',a=>String(a.reduce((s,x)=>s+x,0)),true);
+ else if(n===21){const available=names.map((_,i)=>i).filter(x=>!g.known[p].has(x));const k=await param(p,'どの番号の場所を質問しますか？',available[Math.floor(Math.random()*available.length)]??0);ask(p,`${k} ${names[k]} はどこ？`,a=>positions(a,x=>x===k))}}
+function candidateOrders(excluded,observations){const pool=names.map((_,i)=>i).filter(x=>!excluded.has(x));let out=[];for(const a of pool)for(const b of pool)if(a!==b)for(const c of pool)if(c!==a&&c!==b){const v=[a,b,c];if(observations.every(o=>o.fn(v)===o.answer))out.push(v)}return out}
+function candidates(p){return candidateOrders(g.known[p],g.observations[p])}
+function opponentViewCandidates(){return candidateOrders(new Set(g.field.map(c=>c.n)),g.observations[1])}
+function cpuPrediction(){const c=candidates(1);return c.length?c[Math.floor(Math.random()*c.length)]:shuffled(names.map((_,i)=>i).filter(x=>!g.known[1].has(x))).slice(0,3)}
+function predictionForm(){return `<div class="predictions">${[0,1,2].map(i=>`<label>${i+1}着<br><select id="guess${i}"><option value="">選んでください</option>${names.map((n,j)=>`<option value="${j}">${j} ${n}</option>`).join('')}</select></label>`).join('')}</div><div id="guessError" role="alert"></div><button class="primary" onclick="settle()">予想を確定し、着順を公開 →</button>`}
+function points(guess,actual,raised){const detail=[guess[0]===actual[0],guess.slice().sort((a,b)=>a-b).join(',')===actual.slice().sort((a,b)=>a-b).join(','),guess.every((x,i)=>x===actual[i])];return {detail,total:detail.filter(Boolean).length*(raised?2:1)}}
+function settle(){const raw=[0,1,2].map(i=>$('guess'+i).value);if(raw.some(v=>v==='')||new Set(raw).size!==3){$('guessError').textContent='異なる3枚を選んでください。';return}g.guess=raw.map(Number);g.scores=[points(g.guess,g.players[1].hidden,g.players[0].raised),points(g.cpuGuess,g.players[0].hidden,g.players[1].raised)];g.done=true;g.phase='done';log(`<b>決着</b> あなた ${g.scores[0].total}点 ／ CPU ${g.scores[1].total}点`);render();void gameFx(g.scores[0].total>g.scores[1].total?'win':g.scores[0].total<g.scores[1].total?'lose':'tie')}
+function resultHtml(){const a=g.scores[0].total,b=g.scores[1].total;return `<div class="actual-order">相手の実際の着順：${g.players[1].hidden.map(n=>`${n} ${names[n]}`).join(' → ')}</div><div class="result">${a>b?'あなたの勝利':a<b?'CPUの勝利':'引き分け'} <span>${a} : ${b}</span></div>${[0,1].map(p=>`<div class="scoreline">${who(p)}の予想：${(p===0?g.guess:g.cpuGuess).map(n=>`${n} ${names[n]}`).join(' → ')}<br><small>${['1着','組み合わせ','全着順'].map((s,i)=>`${s} ${g.scores[p].detail[i]?'✓ ＋1':'× 0'}`).join(' ／ ')}${g.players[p].raised?' ／ レイズ ×2':''}</small></div>`).join('')}<div class="actions"><button class="primary" onclick="start()">もう一度、対戦する</button></div>`}
+$('clues').onclick=showClues;
+$('guide').onclick=()=>info('ヘルプ',`<h3>勝利への道</h3><p>1着の的中で1点、3枚の組み合わせの的中で1点、全着順の的中で1点。レイズで自分の獲得点が2倍になります。</p><h3>推理表示について</h3><p>候補は、あなたの札・公開済みカード・回答から自動整理。相手の非公開情報は使いません。相手の回答は最新の1件を表示し、前後のボタンで過去の回答を確認できます。新しい回答が届くと最新に戻ります。</p><p>相手から見た自分の候補は「表示する／非表示にする」で切り替えられます。公開情報だけから整理するため、相手だけが知る札によって実際の候補はさらに少ない場合があります。グレーのカードは公開済み・使用済み・自分の札です。未確認は相手の札または山札です。</p><h3>基本ルール</h3><p>ノーグナッドの馬人たちが考案した、着順を当てる推理遊戯。「ケーヴァ」は1着がゴールした際の「到着した」という叫びに由来すると言われます。</p><ol><li>22枚を混ぜ、両者に着順札3枚・手札3枚を配ります。着順札は左から1着・2着・3着。対戦中は変わりません。</li><li>自分の番に1枚引き、手札から1枚を公開。その後1枚を使用します。それぞれ該当する効果だけを発動します。</li><li>使用の代わりに、一度だけレイズを宣言できます。自分の最終獲得点が2倍になります。</li><li>先攻→後攻を3巡したら、相手の3枚と着順を予想します。</li><li>1着の的中・組み合わせの的中・全着順の的中で各1点（合計3点）。多く得点した側が勝利、同点は引き分けです。</li></ol><h3>試作版の処理</h3><p>0も偶数です。質問は相手の着順札3枚に対し、すべて正直に回答します。「両」は両者の着順札を対象とし、回答は互いに見えます。放浪者の「同じ枠色はどこ？」は、相手の着順札3枚で枠色が一致する着順を確認します。例：1着・3着が同じ枠色。3枚とも同じなら1着・2着・3着、すべて異なるなら「同じ枠色なし」と回答します。枠色そのものは明かしません。</p><p>酔狂の処理前に手札が1枚以下なら1枚補充し、各公開直前にも手札が1枚なら1枚補充します。追加公開でも公開時効果が発動します。両者の効果は発動者から処理します。征服者は場に出た公開・使用済みカードを対象とし、征服者自身は対象外です。</p><p>山札が空なら引く処理のみ省略。手札がなく、レイズも使い切った場合は使用を省略します。先攻はランダムです。CPUは自分の札・公開済みカード・回答だけを使って推理します。ブラウザ内で遊ぶ試作版のため、オンライン対戦には未対応です。</p>`);
+$('catalog').onclick=()=>info('22枚のカード図鑑',`<p>公開時と使用時で、発動する効果が異なります。</p><div class="grid">${names.map((_,n)=>`<div>${card(n)}<p style="max-width:160px;font-size:11px">公開：${pubs[n]||'効果なし'}<br>使用：${uses[n]}</p></div>`).join('')}</div>`);
+render();
+
