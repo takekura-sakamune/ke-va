@@ -22,13 +22,34 @@
   gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(volume,time+.012);gain.gain.exponentialRampToValueAtTime(.001,time+duration);
   osc.connect(gain);gain.connect(master);osc.start(time);osc.stop(time+duration+.025);osc.onended=()=>{osc.disconnect();gain.disconnect()};
  }
+ let paperBuffer=null;
+ function paper(time,duration=.17,strength=.5){
+  if(!ctx||!master)return;
+  if(!paperBuffer){
+   paperBuffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*.4),ctx.sampleRate);
+   const samples=paperBuffer.getChannelData(0);
+   for(let i=0;i<samples.length;i++)samples[i]=Math.random()*2-1;
+  }
+  const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),low=ctx.createBiquadFilter(),gain=ctx.createGain();
+  source.buffer=paperBuffer;source.playbackRate.value=.9+Math.random()*.2;
+  filter.type='highpass';filter.frequency.value=750;
+  low.type='lowpass';low.frequency.setValueAtTime(6500,time);low.frequency.exponentialRampToValueAtTime(2400,time+duration);
+  // Two uneven swishes give the dry texture of card edges rubbing together.
+  gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(strength,time+.018);
+  gain.gain.linearRampToValueAtTime(strength*.22,time+duration*.42);
+  gain.gain.linearRampToValueAtTime(strength*.65,time+duration*.59);
+  gain.gain.exponentialRampToValueAtTime(.001,time+duration);
+  source.connect(filter);filter.connect(low);low.connect(gain);gain.connect(master);
+  source.start(time,Math.random()*.08,duration);source.stop(time+duration+.02);
+  source.onended=()=>{source.disconnect();filter.disconnect();low.disconnect();gain.disconnect()};
+ }
  function sound(kind){
   if(!enabled||!unlocked||!ctx||ctx.state!=='running'||document.hidden)return;
   const t=ctx.currentTime+.01;
   const notes=(seq,step=.09,duration=.25)=>seq.forEach((f,i)=>tone(f,t+i*step,duration,'sine',.24));
-  if(kind==='draw')tone(700,t,.12,'triangle',.15,240);
-  else if(kind==='publish'){tone(320,t,.13,'triangle',.18,640);tone(1046,t+.08,.25,'sine',.12)}
-  else if(kind==='use')notes([392,587,784],.055,.19);
+  if(kind==='draw')paper(t,.14,.45);
+  else if(kind==='publish')paper(t,.22,.55);
+  else if(kind==='use'){paper(t,.17,.5);tone(180,t+.12,.09,'sine',.1,95)}
   else if(kind==='answer')notes([880,1175],.07,.22);
   else if(kind==='raise')notes([262,392,523,784],.1,.35);
   else if(kind==='win')notes([523,659,784,1046],.13,.55);
@@ -56,13 +77,26 @@
   sound(data.mode);
   if(!motion||reduce?.matches)return;
   const el=popup(`${data.n} ${data.name}`,data.mode,data.symbol);
+  if(data.image){const img=document.createElement('img');img.className='fx-card-art';img.src=data.image;img.alt=`${data.n} ${data.name}`;el.prepend(img);el.classList.add('fx-image-card')}
   const caption=document.createElement('small');caption.textContent=`${data.p===0?'あなた':'CPU'}が${data.mode==='publish'?'公開':'使用'}`;el.append(caption);
   try{await animate(el,[{opacity:0,transform:data.mode==='publish'?'perspective(600px) rotateY(-85deg) scale(.85)':'translateY(60px) rotate(-6deg) scale(.8)'},{opacity:1,transform:'perspective(600px) rotateY(0) translateY(0) scale(1)',offset:.35},{opacity:1,offset:.8},{opacity:0,transform:'translateY(-20px) scale(.95)'}],{duration:650})}finally{el.remove()}
  }
  function highlight(selector){const el=document.querySelector(selector);if(el)void animate(el,[{boxShadow:'0 0 0 2px #e3c88a, 0 0 28px #e3c88a66'},{boxShadow:'0 0 0 0 transparent'}],{duration:850})}
+ let lastDealSound=-1;
+ async function deal(data){
+  if(ctx&&ctx.currentTime-lastDealSound>.08){sound('draw');lastDealSound=ctx.currentTime}
+  if(!motion||reduce?.matches)return;
+  const source=document.querySelector('#deck-stack .card'),target=document.querySelector(data.target);
+  if(!source||!target||!source.getBoundingClientRect||!target.getBoundingClientRect)return;
+  const from=source.getBoundingClientRect(),to=target.getBoundingClientRect();
+  const flying=source.cloneNode(true);flying.classList.add('dealing-card');
+  Object.assign(flying.style,{position:'fixed',left:from.left+'px',top:from.top+'px',width:from.width+'px',height:from.height+'px',minHeight:'0',margin:'0',zIndex:'60',pointerEvents:'none'});document.body.append(flying);
+  try{await animate(flying,[{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:`translate(${to.left-from.left}px,${to.top-from.top}px) rotate(-7deg)`,opacity:1,offset:.85},{transform:`translate(${to.left-from.left}px,${to.top-from.top}px) rotate(0deg)`,opacity:1}],{duration:280})}finally{flying.remove()}
+ }
  root.KevaFX={
   async play(kind,data={}){
    try{
+    if(kind==='deal')return await deal(data);
     if(kind==='card')return await card(data);
     sound(kind);
     if(kind==='draw'){void flash(`${data.p===0?'あなた':'CPU'}が${data.count}枚ドロー`,'draw','▱');return}
