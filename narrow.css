@@ -10,3 +10,5 @@ main{max-width:860px;padding:12px 14px}header{padding-left:max(14px,calc((100vw 
 /* The title artwork is shown in full, without cropping. */
 .title-screen{padding:12px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:16px}.title-image{display:block;width:auto;height:auto;max-width:100%;max-height:min(65svh,600px);object-fit:contain;border-radius:5px}.title-screen>p{font-size:11px;margin:0}.title-screen>.primary{padding:12px 24px}#card-overview[hidden]{display:none}
 @media(max-width:550px){.title-screen{padding:6px 0;gap:12px}.title-image{max-height:60svh}.title-screen>.primary{font-size:13px}}
+
+.header-brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.creator-link{color:var(--gold);font-size:11px;text-underline-offset:3px;white-space:nowrap}
