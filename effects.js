@@ -48,7 +48,8 @@
   source.onended=()=>{source.disconnect();filter.disconnect();low.disconnect();gain.disconnect()};
  }
  function sound(kind){
-  if(!enabled||!unlocked||!ctx||ctx.state!=='running'||document.hidden)return;
+  if(!enabled||!unlocked||!ctx||document.hidden)return;
+  if(ctx.state!=='running'){if(ctx.state==='suspended')void ctx.resume().then(()=>{if(ctx.state==='running')sound(kind)}).catch(()=>{});return}
   const t=ctx.currentTime+.01;
   const notes=(seq,step=.09,duration=.25)=>seq.forEach((f,i)=>tone(f,t+i*step,duration,'sine',.24));
   if(kind==='draw')paper(t,.14,.45);
@@ -79,16 +80,18 @@
  }
  async function card(data){
   sound(data.mode);
-  if(!motion||reduce?.matches||stillCards)return;
+  if(!motion||reduce?.matches)return;
   const el=document.querySelector(`[data-card-id="${data.n}"]`);
   if(!el)return;
+  if(stillCards){const mark=document.createElement('span');mark.className='card-feedback';mark.setAttribute('aria-hidden','true');el.append(mark);setTimeout(()=>mark.remove(),360);return}
   await animate(el,[{transform:'translateY(3px) scale(.985)',filter:'brightness(1.12)'},{transform:'translateY(0) scale(1)',filter:'brightness(1)'}],{duration:180});
  }
  function highlight(selector){if(stillCards)return;const el=document.querySelector(selector);if(el)void animate(el,[{boxShadow:'0 0 0 2px #e3c88a, 0 0 28px #e3c88a66'},{boxShadow:'0 0 0 0 transparent'}],{duration:850})}
  let lastDealSound=-1;
  async function deal(data){
   if(ctx&&ctx.currentTime-lastDealSound>.08){sound('draw');lastDealSound=ctx.currentTime}
-  if(!motion||reduce?.matches||stillCards)return;
+  if(!motion||reduce?.matches)return;
+  if(stillCards){const target=document.querySelector(data.target);if(target){target.classList.remove('deal-feedback');void target.offsetWidth;target.classList.add('deal-feedback');setTimeout(()=>target.classList.remove('deal-feedback'),300)}return}
   const source=document.querySelector('#deck-stack .card'),target=document.querySelector(data.target);
   if(!source||!target||!source.getBoundingClientRect||!target.getBoundingClientRect)return;
   const from=source.getBoundingClientRect(),to=target.getBoundingClientRect();
