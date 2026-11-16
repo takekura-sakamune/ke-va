@@ -99,7 +99,7 @@
   const width=stillCards?28:from.width,height=stillCards?44:from.height;
   const startLeft=from.left+(from.width-width)/2,startTop=from.top+(from.height-height)/2;
   Object.assign(flying.style,{position:'fixed',left:startLeft+'px',top:startTop+'px',width:width+'px',height:height+'px',minHeight:'0',margin:'0',zIndex:'60',pointerEvents:'none'});document.body.append(flying);
-  try{await animate(flying,[{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:`translate(${to.left+to.width/2-startLeft}px,${to.top+to.height/2-startTop}px) rotate(-7deg)`,opacity:1}],{duration:stillCards?170:280})}finally{flying.remove()}
+  try{await animate(flying,[{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:`translate(${to.left+to.width/2-startLeft}px,${to.top+to.height/2-startTop}px) rotate(-7deg)`,opacity:1}],{duration:stillCards?170:70})}finally{flying.remove()}
   if(stillCards){target.classList.add('deal-feedback');setTimeout(()=>target.classList.remove('deal-feedback'),300)}
  }
  root.KevaFX={
