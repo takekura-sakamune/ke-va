@@ -11,10 +11,11 @@
   if(anim){anim.textContent=motion?'✧ 演出：オン':'✧ 演出：オフ';anim.setAttribute('aria-pressed',String(motion))}
   document.documentElement.classList.toggle('motion-off',!motion);
  }
- async function unlock(){
+ function unlock(){
   unlocked=true;
-  if(!enabled)return;
-  try{const Audio=root.AudioContext||root.webkitAudioContext;if(!Audio)return;if(!ctx){ctx=new Audio();master=ctx.createGain();master.gain.value=.2;master.connect(ctx.destination)}if(ctx.state==='suspended')await ctx.resume()}catch{}
+  if(!enabled)return Promise.resolve();
+  try{const Audio=root.AudioContext||root.webkitAudioContext;if(!Audio)return Promise.resolve();if(!ctx){ctx=new Audio();master=ctx.createGain();master.gain.value=.2;master.connect(ctx.destination)}if(ctx.state==='suspended')return ctx.resume().catch(()=>{});}catch{}
+  return Promise.resolve();
  }
  function tone(f,time,duration,type='sine',volume=.25,slide=null){
   if(!ctx||!master)return;
@@ -76,10 +77,9 @@
  async function card(data){
   sound(data.mode);
   if(!motion||reduce?.matches)return;
-  const el=popup(`${data.n} ${data.name}`,data.mode,data.symbol);
-  if(data.image){const img=document.createElement('img');img.className='fx-card-art';img.src=data.image;img.alt=`${data.n} ${data.name}`;el.prepend(img);el.classList.add('fx-image-card')}
-  const caption=document.createElement('small');caption.textContent=`${data.p===0?'あなた':'CPU'}が${data.mode==='publish'?'公開':'使用'}`;el.append(caption);
-  try{await animate(el,[{opacity:0,transform:data.mode==='publish'?'perspective(600px) rotateY(-85deg) scale(.85)':'translateY(60px) rotate(-6deg) scale(.8)'},{opacity:1,transform:'perspective(600px) rotateY(0) translateY(0) scale(1)',offset:.35},{opacity:1,offset:.8},{opacity:0,transform:'translateY(-20px) scale(.95)'}],{duration:650})}finally{el.remove()}
+  const el=document.querySelector(`[data-card-id="${data.n}"]`);
+  if(!el)return;
+  await animate(el,[{transform:'translateY(3px) scale(.985)',filter:'brightness(1.12)'},{transform:'translateY(0) scale(1)',filter:'brightness(1)'}],{duration:180});
  }
  function highlight(selector){const el=document.querySelector(selector);if(el)void animate(el,[{boxShadow:'0 0 0 2px #e3c88a, 0 0 28px #e3c88a66'},{boxShadow:'0 0 0 0 transparent'}],{duration:850})}
  let lastDealSound=-1;
@@ -111,8 +111,9 @@
   toggleSound(){enabled=!enabled;try{localStorage.setItem('keva-sound',enabled?'on':'off')}catch{}if(master)master.gain.value=enabled ? .2 : 0;if(enabled)void unlock().then(()=>sound('answer'));update()},
   toggleMotion(){motion=!motion;try{localStorage.setItem('keva-motion',motion?'on':'off')}catch{}update()}
  };
- document.addEventListener('pointerdown',()=>void unlock(),{passive:true});
- document.addEventListener('keydown',()=>void unlock(),{passive:true});
+ document.addEventListener('pointerdown',()=>{void unlock()},{passive:true,capture:true});
+ document.addEventListener('touchstart',()=>{void unlock()},{passive:true,capture:true});
+ document.addEventListener('keydown',()=>{void unlock()},{passive:true,capture:true});
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&ctx?.state==='running')void ctx.suspend().catch(()=>{})});
  document.getElementById('sound-toggle')?.addEventListener('click',()=>root.KevaFX.toggleSound());
  document.getElementById('motion-toggle')?.addEventListener('click',()=>root.KevaFX.toggleMotion());
