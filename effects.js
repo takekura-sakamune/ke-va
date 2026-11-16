@@ -3,6 +3,9 @@
  const root=globalThis;
  let ctx=null,master=null,enabled=true,motion=true,unlocked=false;
  const reduce=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion: reduce)'):null;
+ // Mobile browsers often repaint large card artwork during transform/filter animations.
+ // Keep the cards completely still on touch/small-screen devices.
+ const stillCards=typeof matchMedia==='function'&&matchMedia('(pointer: coarse), (max-width: 700px)').matches;
  try{enabled=localStorage.getItem('keva-sound')!=='off';motion=localStorage.getItem('keva-motion')!=='off'}catch{}
  const layer=document.createElement('div');layer.id='fx-layer';layer.setAttribute('aria-hidden','true');document.body.append(layer);
  function update(){
@@ -76,16 +79,16 @@
  }
  async function card(data){
   sound(data.mode);
-  if(!motion||reduce?.matches)return;
+  if(!motion||reduce?.matches||stillCards)return;
   const el=document.querySelector(`[data-card-id="${data.n}"]`);
   if(!el)return;
   await animate(el,[{transform:'translateY(3px) scale(.985)',filter:'brightness(1.12)'},{transform:'translateY(0) scale(1)',filter:'brightness(1)'}],{duration:180});
  }
- function highlight(selector){const el=document.querySelector(selector);if(el)void animate(el,[{boxShadow:'0 0 0 2px #e3c88a, 0 0 28px #e3c88a66'},{boxShadow:'0 0 0 0 transparent'}],{duration:850})}
+ function highlight(selector){if(stillCards)return;const el=document.querySelector(selector);if(el)void animate(el,[{boxShadow:'0 0 0 2px #e3c88a, 0 0 28px #e3c88a66'},{boxShadow:'0 0 0 0 transparent'}],{duration:850})}
  let lastDealSound=-1;
  async function deal(data){
   if(ctx&&ctx.currentTime-lastDealSound>.08){sound('draw');lastDealSound=ctx.currentTime}
-  if(!motion||reduce?.matches)return;
+  if(!motion||reduce?.matches||stillCards)return;
   const source=document.querySelector('#deck-stack .card'),target=document.querySelector(data.target);
   if(!source||!target||!source.getBoundingClientRect||!target.getBoundingClientRect)return;
   const from=source.getBoundingClientRect(),to=target.getBoundingClientRect();
@@ -104,7 +107,7 @@
     if(kind==='raise')return await flash(`${data.p===0?'あなた':'CPU'}がレイズ ×2`,'raise','♢');
     if(kind==='predict')return await flash('最後の予想へ','predict','⌖');
     if(kind==='start'){highlight('#table');return}
-    if(['win','lose','tie'].includes(kind)){highlight('.result');document.querySelectorAll('[data-seat="1"] .card').forEach(el=>void animate(el,[{transform:'rotateY(-85deg)',opacity:.2},{transform:'rotateY(0)',opacity:1}],{duration:600}));}
+    if(['win','lose','tie'].includes(kind)){highlight('.result');if(!stillCards)document.querySelectorAll('[data-seat="1"] .card').forEach(el=>void animate(el,[{transform:'rotateY(-85deg)',opacity:.2},{transform:'rotateY(0)',opacity:1}],{duration:600}));}
    }catch{/* Effects never interrupt game progression. */}
   },
   unlock,
