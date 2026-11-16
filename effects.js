@@ -91,13 +91,16 @@
  async function deal(data){
   if(ctx&&ctx.currentTime-lastDealSound>.08){sound('draw');lastDealSound=ctx.currentTime}
   if(!motion||reduce?.matches)return;
-  if(stillCards){const target=document.querySelector(data.target);if(target){target.classList.remove('deal-feedback');void target.offsetWidth;target.classList.add('deal-feedback');setTimeout(()=>target.classList.remove('deal-feedback'),300)}return}
   const source=document.querySelector('#deck-stack .card'),target=document.querySelector(data.target);
   if(!source||!target||!source.getBoundingClientRect||!target.getBoundingClientRect)return;
   const from=source.getBoundingClientRect(),to=target.getBoundingClientRect();
-  const flying=source.cloneNode(true);flying.classList.add('dealing-card');
-  Object.assign(flying.style,{position:'fixed',left:from.left+'px',top:from.top+'px',width:from.width+'px',height:from.height+'px',minHeight:'0',margin:'0',zIndex:'60',pointerEvents:'none'});document.body.append(flying);
-  try{await animate(flying,[{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:`translate(${to.left-from.left}px,${to.top-from.top}px) rotate(-7deg)`,opacity:1,offset:.85},{transform:`translate(${to.left-from.left}px,${to.top-from.top}px) rotate(0deg)`,opacity:1}],{duration:280})}finally{flying.remove()}
+  const flying=stillCards?document.createElement('div'):source.cloneNode(true);
+  flying.classList.add(stillCards?'dealing-card-ghost':'dealing-card');
+  const width=stillCards?28:from.width,height=stillCards?44:from.height;
+  const startLeft=from.left+(from.width-width)/2,startTop=from.top+(from.height-height)/2;
+  Object.assign(flying.style,{position:'fixed',left:startLeft+'px',top:startTop+'px',width:width+'px',height:height+'px',minHeight:'0',margin:'0',zIndex:'60',pointerEvents:'none'});document.body.append(flying);
+  try{await animate(flying,[{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:`translate(${to.left+to.width/2-startLeft}px,${to.top+to.height/2-startTop}px) rotate(-7deg)`,opacity:1}],{duration:stillCards?170:280})}finally{flying.remove()}
+  if(stillCards){target.classList.add('deal-feedback');setTimeout(()=>target.classList.remove('deal-feedback'),300)}
  }
  root.KevaFX={
   async play(kind,data={}){
