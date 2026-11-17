@@ -31,3 +31,15 @@
 /* Contrast labels against the dark felt/table background */
 .race-count-label,.bet-select{color:#f7f0df;text-shadow:0 1px 3px #000;background:#061c18c9;border:1px solid #ffffff38;border-radius:8px;padding:.65rem .9rem}
 .race-count-label select,.bet-select select{color:#171512;text-shadow:none;background:#fffdf8}
+
+/* Compact start screen with settings beside the title art */
+.title-screen{padding:14px 8px 10px;gap:12px}
+.start-layout{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1fr);align-items:center;gap:clamp(16px,3vw,34px);width:min(100%,1000px);margin:0 auto}
+.start-layout>.title-image{width:100%;max-height:min(68svh,650px);object-fit:contain}
+.start-options{width:100%;min-width:0}
+.start-options .mode-select-label{margin:5px auto;flex-wrap:wrap}
+.start-options .mode-note{min-height:2.2em}
+.start-options .race-count-label{margin:.7rem auto}
+.start-options .highscore-panel{width:min(100%,420px);margin:.7rem auto;padding:.65rem .9rem}
+.start-options .highscore-panel li{padding:.25rem .1rem;font-size:.9rem}
+@media(max-width:680px){.start-layout{grid-template-columns:minmax(0,1fr);gap:10px;max-width:450px}.start-layout>.title-image{max-height:35svh}.start-options .mode-note{min-height:0}.start-options .highscore-panel{width:100%}}
