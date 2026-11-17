@@ -58,6 +58,11 @@
   else if(kind==='answer')notes([880,1175],.07,.22);
   else if(kind==='raise')notes([262,392,523,784],.1,.35);
   else if(kind==='win')notes([523,659,784,1046],.13,.55);
+  else if(kind==='perfect'){
+   // A longer, layered victory fanfare for a fully correct order.
+   [[523,659,784,1046,1318,1568,2093],[262,330,392,523,659]].forEach((seq,layer)=>seq.forEach((f,i)=>tone(f,t+i*(layer ? .23 : .19),layer ? 1.05 : .72,layer ? 'sine' : 'triangle',layer ? .14 : .22)));
+   [1046,1318,1568,2093,2637].forEach((f,i)=>tone(f,t+.88+i*.16,.9,'sine',.13));
+  }
   else if(kind==='lose')notes([392,349,294,262],.15,.4);
   else if(kind==='tie')notes([392,523,392],.14,.4);
   else if(kind==='predict')notes([440,659],.16,.4);
@@ -113,7 +118,7 @@
     if(kind==='raise')return await flash(`${data.p===0?'あなた':'CPU'}がレイズ ×2`,'raise','♢');
     if(kind==='predict')return await flash('最後の予想へ','predict','⌖');
     if(kind==='start'){highlight('#table');return}
-    if(['win','lose','tie'].includes(kind)){highlight('.result');if(!stillCards)document.querySelectorAll('[data-seat="1"] .card').forEach(el=>void animate(el,[{transform:'rotateY(-85deg)',opacity:.2},{transform:'rotateY(0)',opacity:1}],{duration:600}));}
+    if(['win','lose','tie','perfect'].includes(kind)){highlight('.result');if(!stillCards)document.querySelectorAll('[data-seat="1"] .card').forEach(el=>void animate(el,[{transform:'rotateY(-85deg)',opacity:.2},{transform:'rotateY(0)',opacity:1}],{duration:600}));}
    }catch{/* Effects never interrupt game progression. */}
   },
   unlock,

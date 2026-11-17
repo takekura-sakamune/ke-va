@@ -9,3 +9,25 @@
 #own-intel .rank-clue details{margin-top:12px}
 #own-intel .rank-clue.solved .clue-heading>span{color:#edba94}
 @media(max-width:550px){#own-intel{padding:13px}.intel-title{align-items:flex-start;flex-wrap:wrap}.intel-count{margin-bottom:12px}}
+
+/* Multi-race point game */
+.race-count-label,.bet-select{display:flex;align-items:center;justify-content:center;gap:.75rem;margin:1rem auto;color:var(--ink,#29251f);font-weight:700}
+.race-count-label select,.bet-select select{font:inherit;padding:.55rem .8rem;border:1px solid #b9ae9b;border-radius:.6rem;background:#fffdf8;color:inherit}
+.highscore,.bankroll{margin:.8rem auto;color:#4d463b}
+.highscore strong,.bankroll strong{font-size:1.2em;color:#8b6222}
+.bet-note{font-size:.9rem;color:#6e665a}
+
+.race-count-label,.bet-select{color:#24211c}
+.race-count-label select,.bet-select select{color:#171512;background-color:#fffdf8}
+.race-count-label select option,.bet-select select option{color:#171512;background:#fffdf8}
+.highscore-panel{width:min(100%,440px);box-sizing:border-box;margin:1.25rem auto;padding:1rem 1.2rem;border:2px solid #a98a54;border-radius:12px;background:#f7f1e4;color:#27231d;text-align:left;box-shadow:0 5px 18px #241b1020}
+.highscore-panel h2{margin:0 0 .7rem;text-align:center;font-size:1.05rem;color:#4f3b1e}
+.highscore-panel ol{margin:0;padding-left:1.6rem}
+.highscore-panel li{display:grid;grid-template-columns:1fr auto auto;gap:.7rem;padding:.38rem .15rem;border-bottom:1px solid #d8cdb8;font-variant-numeric:tabular-nums}
+.highscore-panel li:last-child{border-bottom:0}
+.highscore-panel li strong{color:#382b18}.highscore-panel li span,.highscore-panel li time{color:#514a40;font-size:.9em}
+.highscore-panel>p{text-align:center;color:#514a40}
+
+/* Contrast labels against the dark felt/table background */
+.race-count-label,.bet-select{color:#f7f0df;text-shadow:0 1px 3px #000;background:#061c18c9;border:1px solid #ffffff38;border-radius:8px;padding:.65rem .9rem}
+.race-count-label select,.bet-select select{color:#171512;text-shadow:none;background:#fffdf8}
